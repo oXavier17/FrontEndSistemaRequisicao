@@ -114,10 +114,6 @@ export default function MaterialTable({ materiais, categorias, unidades, onEdit,
                     <MiniBar value={m.estoqueAtual} min={m.estoqueMin}/>
                   </td>
 
-                  <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
-                    {nomeUnidade(m.unMedId)}
-                  </td>
-
                   <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ fontFamily: 'Syne', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>R$ {preco}</div>
                     <div style={{ fontSize: 11, color: 'var(--muted)' }}>por {nomeUnidade(m.unMedId)}</div>

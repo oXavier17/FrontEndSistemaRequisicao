@@ -1,16 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Save, Info, AlertCircle, RefreshCw } from 'lucide-react';
 
-const emptyForm = { nome: '', categoriaId: '', unMedId: '', estoque: '', minimo: '', preco: '' };
+// Enum de unidades — definido no back-end, espelhado aqui
+const UNIDADES_ENUM = [
+  { value: 'UN',    label: 'Unidade (un)'  },
+  { value: 'CX',    label: 'Caixa (cx)'    },
+  { value: 'KG',    label: 'Quilograma (kg)'},
+  { value: 'L',     label: 'Litro (L)'     },
+  { value: 'M',     label: 'Metro (m)'     },
+  { value: 'RESMA', label: 'Resma'         },
+  { value: 'PCT',   label: 'Pacote (pct)'  },
+  { value: 'PAR',   label: 'Par'           },
+];
 
-const Field = ({ label, children }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)', letterSpacing: '0.03em' }}>{label}</label>
-      {children}
-    </div>
-  );
-  
-export default function MaterialForm({ editando, onSave, onCancel, categorias, unidades, salvando, erroForm, setErroForm }) {
+const emptyForm = { nome: '', categoriaId: '', unidade: '', minimo: '' };
+
+export default function MaterialForm({ editando, onSave, onCancel, categorias, salvando, erroForm, setErroForm }) {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
@@ -18,10 +23,8 @@ export default function MaterialForm({ editando, onSave, onCancel, categorias, u
       setForm({
         nome:        editando.nome,
         categoriaId: String(editando.categoriaId),
-        unMedId:     String(editando.unMedId),
-        estoque:     String(editando.estoqueAtual),
+        unidade:     editando.unidade ?? '',
         minimo:      String(editando.estoqueMin),
-        preco:       String(editando.preco),
       });
     } else {
       setForm(emptyForm);
@@ -29,14 +32,6 @@ export default function MaterialForm({ editando, onSave, onCancel, categorias, u
   }, [editando]);
 
   const set = (field, value) => { setForm(f => ({ ...f, [field]: value })); setErroForm?.(null); };
-
-  // Indicador visual de estoque
-  const estoqueNum = parseFloat(form.estoque) || 0;
-  const minimoNum  = parseFloat(form.minimo)  || 0;
-  const ratio      = minimoNum > 0 ? estoqueNum / minimoNum : 0;
-  const barPct     = Math.min(100, Math.round(ratio * 100));
-  const barColor   = ratio <= 0 ? 'var(--border)' : ratio <= 0.5 ? '#ef4444' : ratio < 1 ? '#f59e0b' : '#10b981';
-  const nivelLabel = minimoNum === 0 ? '—' : ratio <= 0.5 ? 'Crítico' : ratio < 1 ? 'Baixo' : 'Normal';
 
   const inputStyle = {
     background: 'var(--surface2)', border: '1px solid var(--border)',
@@ -47,8 +42,15 @@ export default function MaterialForm({ editando, onSave, onCancel, categorias, u
   const focusStyle = (e) => { e.target.style.borderColor='var(--accent)'; e.target.style.boxShadow='0 0 0 3px var(--accent-glow)'; };
   const blurStyle  = (e) => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none'; };
 
+  const Field = ({ label, children }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)', letterSpacing: '0.03em' }}>{label}</label>
+      {children}
+    </div>
+  );
+
   const handleSubmit = () => {
-    if (!form.nome || !form.categoriaId || !form.unMedId || form.estoque === '' || form.minimo === '' || form.preco === '') {
+    if (!form.nome || !form.categoriaId || !form.unidade || form.minimo === '') {
       setErroForm?.('Preencha todos os campos obrigatórios.'); return;
     }
     onSave(form);
@@ -73,14 +75,12 @@ export default function MaterialForm({ editando, onSave, onCancel, categorias, u
           </div>
         )}
 
-        {/* Nome */}
         <Field label="Nome do Material *">
           <input style={inputStyle} value={form.nome} placeholder="Ex: Papel A4 75g"
             onChange={e => set('nome', e.target.value)}
             onFocus={focusStyle} onBlur={blurStyle} disabled={salvando}/>
         </Field>
 
-        {/* Categoria — select com dados da API */}
         <Field label="Categoria *">
           <select style={inputStyle} value={form.categoriaId}
             onChange={e => set('categoriaId', e.target.value)}
@@ -92,58 +92,27 @@ export default function MaterialForm({ editando, onSave, onCancel, categorias, u
           </select>
         </Field>
 
-        {/* Estoque atual + mínimo */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Estoque Atual *">
-            <input style={inputStyle} type="number" min="0" value={form.estoque} placeholder="0"
-              onChange={e => set('estoque', e.target.value)}
-              onFocus={focusStyle} onBlur={blurStyle} disabled={salvando}/>
-          </Field>
-          <Field label="Estoque Mínimo *">
-            <>
-              <input style={inputStyle} type="number" min="0" value={form.minimo} placeholder="0"
-                onChange={e => set('minimo', e.target.value)}
-                onFocus={focusStyle} onBlur={blurStyle} disabled={salvando}/>
-              <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                <Info size={10}/> Dispara alerta abaixo deste valor
-              </div>
-            </>
-          </Field>
-        </div>
+        {/* Unidade como enum — select fixo, sem cadastro */}
+        <Field label="Unidade de Medida *">
+          <select style={inputStyle} value={form.unidade}
+            onChange={e => set('unidade', e.target.value)}
+            onFocus={focusStyle} onBlur={blurStyle} disabled={salvando}>
+            <option value="" disabled>Selecione a unidade...</option>
+            {UNIDADES_ENUM.map(u => (
+              <option key={u.value} value={u.value}>{u.label}</option>
+            ))}
+          </select>
+        </Field>
 
-        {/* Indicador visual */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
-          <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Nível:</span>
-          <div style={{ flex: 1, height: 5, background: '#20253a', borderRadius: 5, overflow: 'hidden' }}>
-            <div style={{ width: `${barPct}%`, height: '100%', background: barColor, borderRadius: 5, transition: 'all 0.3s' }}/>
+        <Field label="Estoque Mínimo *">
+          <input style={inputStyle} type="number" min="0" value={form.minimo} placeholder="0"
+            onChange={e => set('minimo', e.target.value)}
+            onFocus={focusStyle} onBlur={blurStyle} disabled={salvando}/>
+          <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+            <Info size={10}/> Alerta disparado abaixo deste valor
           </div>
-          <span style={{ fontSize: 11, color: barColor, whiteSpace: 'nowrap', minWidth: 40, textAlign: 'right' }}>{nivelLabel}</span>
-        </div>
+        </Field>
 
-        {/* Unidade + Preço — selects da API */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Unidade de Medida *">
-            <select style={inputStyle} value={form.unMedId}
-              onChange={e => set('unMedId', e.target.value)}
-              onFocus={focusStyle} onBlur={blurStyle} disabled={salvando}>
-              <option value="" disabled>Selecione...</option>
-              {unidades.map(u => (
-                <option key={u.idUnMed} value={u.idUnMed}>{u.nome}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Preço Unitário *">
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--muted)', pointerEvents: 'none' }}>R$</span>
-              <input style={{ ...inputStyle, paddingLeft: 36 }} type="number" min="0" step="0.01"
-                value={form.preco} placeholder="0,00"
-                onChange={e => set('preco', e.target.value)}
-                onFocus={focusStyle} onBlur={blurStyle} disabled={salvando}/>
-            </div>
-          </Field>
-        </div>
-
-        {/* Erro */}
         {erroForm && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#ef4444' }}>
             <AlertCircle size={13}/> {erroForm}

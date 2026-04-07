@@ -64,6 +64,31 @@ export function useRequisicoes() {
   const [loading, setLoading]         = useState(true);
   const [erro, setErro]               = useState(null);
 
+  const criar = async (data) => {
+    if (USE_MOCK) {
+      const novaId = Math.max(...requisicoes.map(r => r.idRequisicao), 0) + 1;
+      const nova = {
+        idRequisicao:    novaId,
+        status:          1,
+        observacao:      data.observacao,
+        dataRequisicao:  new Date().toISOString(),
+        dataEnvio:       null,
+        nomeRequisitante: 'Xavier Admin',
+        nomeDepartamento: '—',
+        itens: data.itens.map(i => ({
+          idMaterial:   i.materialId,
+          nomeMaterial: i.nomeMaterial ?? `Material ${i.materialId}`,
+          quantidade:   i.quantidade,
+          nomeUnidade:  '',
+        })),
+      };
+      setRequisicoes(prev => [nova, ...prev]);
+      return;
+    }
+    const nova = await requisicoesService.criar(data);
+    setRequisicoes(prev => [nova, ...prev]);
+  };
+
   const carregar = useCallback(async () => {
     try {
       setLoading(true);
@@ -99,5 +124,5 @@ export function useRequisicoes() {
     setRequisicoes(prev => prev.map(r => r.idRequisicao === id ? { ...r, status: 5 } : r));
   };
 
-  return { requisicoes, loading, erro, carregar, atualizarStatus, cancelar };
+  return { requisicoes, loading, erro, carregar, atualizarStatus, cancelar, criar };
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import materiaisService from '../services/materiaisService';
 
+const USE_MOCK = true;
+
 export function useMateriais() {
   const [materiais, setMateriais] = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -10,7 +12,7 @@ export function useMateriais() {
     try {
       setLoading(true);
       setErro(null);
-      const data = await materiaisService.listar();
+      const data = USE_MOCK ? await Promise.resolve([]) : await materiaisService.listar();
       setMateriais(data);
     } catch (e) {
       setErro(e.message);
@@ -23,35 +25,37 @@ export function useMateriais() {
 
   const criar = async (form) => {
     const payload = {
-      nome:        form.nome,
-      estoqueAtual: Number(form.estoque),
+      nome:         form.nome,
+      estoqueAtual: 0,
       estoqueMin:   Number(form.minimo),
       categoriaId:  Number(form.categoriaId),
-      unMedId:      Number(form.unMedId),
-      preco:        Number(form.preco),
+      unidade:      form.unidade,   // ← enum string: 'UN', 'CX', 'KG'...
       status:       1,
+      // sem preço aqui — vai na movimentação
     };
-    const novo = await materiaisService.criar(payload);
+    const novo = USE_MOCK
+      ? { idMaterial: Date.now(), ...payload }
+      : await materiaisService.criar(payload);
     setMateriais(prev => [...prev, novo]);
   };
 
   const editar = async (id, form) => {
     const payload = {
-      nome:         form.nome,
-      estoqueAtual: Number(form.estoque),
-      estoqueMin:   Number(form.minimo),
-      categoriaId:  Number(form.categoriaId),
-      unMedId:      Number(form.unMedId),
-      preco:        Number(form.preco),
+      nome:        form.nome,
+      estoqueMin:  Number(form.minimo),
+      categoriaId: Number(form.categoriaId),
+      unidade:     form.unidade,
     };
-    const atualizado = await materiaisService.editar(id, payload);
+    const atualizado = USE_MOCK
+      ? { ...materiais.find(m => m.idMaterial === id), ...payload }
+      : await materiaisService.editar(id, payload);
     setMateriais(prev => prev.map(m => m.idMaterial === id ? atualizado : m));
   };
 
   const excluir = async (id) => {
-    await materiaisService.excluir(id);
+    if (!USE_MOCK) await materiaisService.excluir(id);
     setMateriais(prev => prev.filter(m => m.idMaterial !== id));
   };
 
-  return { materiais, loading, erro, carregar, criar, editar, excluir };
+  return { materiais, setMateriais, loading, erro, carregar, criar, editar, excluir };
 }

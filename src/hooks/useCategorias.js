@@ -19,5 +19,20 @@ export function useCategorias() {
 
   useEffect(() => { carregar(); }, [carregar]);
 
-  return { categorias, loading, carregar };
+  const criar = async (nome) => {
+    const nova = await categoriasService.criar(nome);
+    setCategorias(prev => [...prev, nova]);
+  };
+
+  const editar = async (id, nome) => {
+    const atualizada = await categoriasService.editar(id, nome);
+    setCategorias(prev => prev.map(c => c.idCategoria === id ? atualizada : c));
+  };
+
+  const excluir = async (id) => {
+    await categoriasService.excluir(id);
+    setCategorias(prev => prev.filter(c => c.idCategoria !== id));
+  };
+
+  return { categorias, loading, carregar, criar, editar, excluir };
 }
