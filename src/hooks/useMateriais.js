@@ -1,41 +1,45 @@
 import { useState, useEffect, useCallback } from 'react';
 import materiaisService from '../services/materiaisService';
 
-const USE_MOCK = true;
-
 export function useMateriais() {
-  const [materiais, setMateriais] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [erro, setErro]           = useState(null);
+  const [materiais, setMateriais]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [erro, setErro]             = useState(null);
+  const [mostrarInativosState, setMostrarInativosState] = useState(() => {
+    return localStorage.getItem('materiais_mostrarInativos') === 'true';
+  });
 
   const carregar = useCallback(async () => {
     try {
       setLoading(true);
       setErro(null);
-      const data = USE_MOCK ? await Promise.resolve([]) : await materiaisService.listar();
+      const data = await materiaisService.listar(mostrarInativosState);
       setMateriais(data);
     } catch (e) {
       setErro(e.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mostrarInativosState]);
 
   useEffect(() => { carregar(); }, [carregar]);
 
+  const setMostrarInativos = (valor) => {
+    const novoValor = typeof valor === 'function' ? valor(mostrarInativosState) : valor;
+    setMostrarInativosState(novoValor);
+    localStorage.setItem('materiais_mostrarInativos', String(novoValor));
+  };
+
   const criar = async (form) => {
     const payload = {
-      nome:         form.nome,
+      nome:        form.nome,
       estoqueAtual: 0,
-      estoqueMin:   Number(form.minimo),
-      categoriaId:  Number(form.categoriaId),
-      unidade:      form.unidade,   // ← enum string: 'UN', 'CX', 'KG'...
-      status:       1,
-      // sem preço aqui — vai na movimentação
+      estoqueMin:  Number(form.minimo),
+      categoriaId: Number(form.categoriaId),
+      unidade:     form.unidade,
+      status:      1,
     };
-    const novo = USE_MOCK
-      ? { idMaterial: Date.now(), ...payload }
-      : await materiaisService.criar(payload);
+    const novo = await materiaisService.criar(payload);
     setMateriais(prev => [...prev, novo]);
   };
 
@@ -46,16 +50,32 @@ export function useMateriais() {
       categoriaId: Number(form.categoriaId),
       unidade:     form.unidade,
     };
-    const atualizado = USE_MOCK
-      ? { ...materiais.find(m => m.idMaterial === id), ...payload }
-      : await materiaisService.editar(id, payload);
+    const atualizado = await materiaisService.editar(id, payload);
     setMateriais(prev => prev.map(m => m.idMaterial === id ? atualizado : m));
   };
 
-  const excluir = async (id) => {
-    if (!USE_MOCK) await materiaisService.excluir(id);
-    setMateriais(prev => prev.filter(m => m.idMaterial !== id));
+  const alterarStatus = async (id) => {
+    await materiaisService.alterarStatus(id);
+    await carregar();
   };
 
-  return { materiais, setMateriais, loading, erro, carregar, criar, editar, excluir };
+  const movimentar = async (dados) => {
+    const resultado = await materiaisService.registrarMovimento({
+      materialId:   Number(dados.materialId),
+      tipo:         dados.tipo === 'entrada' ? 0 : 1,
+      quantidade:   Number(dados.quantidade),
+      fornecedorId: dados.fornecedorId ? Number(dados.fornecedorId) : null,
+      preco:        dados.preco ? Number(dados.preco) : null,
+      observacao:   dados.observacao || null,
+    });
+    await carregar();
+    return resultado;
+  };
+
+  return {
+    materiais, setMateriais, loading, erro, carregar,
+    mostrarInativos: mostrarInativosState,
+    setMostrarInativos,
+    criar, editar, alterarStatus, movimentar,
+  };
 }

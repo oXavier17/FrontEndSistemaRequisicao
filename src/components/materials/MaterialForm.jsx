@@ -15,6 +15,13 @@ const UNIDADES_ENUM = [
 
 const emptyForm = { nome: '', categoriaId: '', unidade: '', minimo: '' };
 
+const Field = ({ label, children }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)', letterSpacing: '0.03em' }}>{label}</label>
+    {children}
+  </div>
+);
+
 export default function MaterialForm({ editando, onSave, onCancel, categorias, salvando, erroForm, setErroForm }) {
   const [form, setForm] = useState(emptyForm);
 
@@ -41,13 +48,6 @@ export default function MaterialForm({ editando, onSave, onCancel, categorias, s
   };
   const focusStyle = (e) => { e.target.style.borderColor='var(--accent)'; e.target.style.boxShadow='0 0 0 3px var(--accent-glow)'; };
   const blurStyle  = (e) => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none'; };
-
-  const Field = ({ label, children }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)', letterSpacing: '0.03em' }}>{label}</label>
-      {children}
-    </div>
-  );
 
   const handleSubmit = () => {
     if (!form.nome || !form.categoriaId || !form.unidade || form.minimo === '') {

@@ -1,58 +1,71 @@
 import axios from 'axios';
 
-// Instância configurada uma vez, usada em todo o projeto
 const api = axios.create({
   baseURL: 'http://localhost:8080/api',
   headers: { 'Content-Type': 'application/json' },
-  timeout: 10000, // 10 segundos — evita ficar travado
+  timeout: 10000,
 });
 
-// Interceptor de REQUEST — roda antes de toda requisição
-// Quando tiver login, é aqui que você injeta o token JWT:
-// api.interceptors.request.use(config => {
-//   const token = localStorage.getItem('token');
-//   if (token) config.headers.Authorization = `Bearer ${token}`;
-//   return config;
-// });
+// 🔐 Interceptor de REQUEST (envia token)
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
-// Interceptor de RESPONSE — roda depois de toda resposta
-// Centraliza o tratamento de erros globais
+// 🚨 Interceptor de RESPONSE (erros)
 api.interceptors.response.use(
-  response => response,          // 2xx — retorna normal
+  response => response,
   error => {
-    const msg = error.response?.data?.message  // mensagem do Spring Boot
-      ?? error.response?.data                  // body como texto
-      ?? error.message;                        // erro de rede
+    const msg =
+      typeof error.response?.data === 'string'  ? error.response.data :
+      error.response?.data?.message             ? error.response.data.message :
+      error.message                             ? error.message :
+      `Erro ${error.response?.status ?? 'desconhecido'}`;
+
+    const isLoginRoute = window.location.pathname === '/login';
+
+    // 🔥 Só redireciona se NÃO estiver no login
+    if (error.response?.status === 401 && !isLoginRoute) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      window.location.href = '/login';
+    }
+
     return Promise.reject(new Error(msg));
   }
 );
 
 export default api;
 
+//
+// ✅ SERVICES PADRONIZADOS (AXIOS)
+//
+
 export const departamentosService = {
-  listar:   ()          => request('/departamentos'),
-  criar:    (data)      => request('/departamentos', { method: 'POST', body: JSON.stringify(data) }),
-  editar:   (id, data)  => request(`/departamentos/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  excluir:  (id)        => request(`/departamentos/${id}`, { method: 'DELETE' }),
+  listar:   () => api.get('/departamentos').then(r => r.data),
+  criar:    (data) => api.post('/departamentos', data).then(r => r.data),
+  editar:   (id, data) => api.put(`/departamentos/${id}`, data).then(r => r.data),
+  excluir:  (id) => api.delete(`/departamentos/${id}`).then(r => r.data),
 };
 
 export const usuariosService = {
-  listar:   ()          => request('/usuarios'),
-  criar:    (data)      => request('/usuarios', { method: 'POST', body: JSON.stringify(data) }),
-  editar:   (id, data)  => request(`/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  excluir:  (id)        => request(`/usuarios/${id}`, { method: 'DELETE' }),
+  listar:   () => api.get('/usuarios').then(r => r.data),
+  criar:    (data) => api.post('/usuarios', data).then(r => r.data),
+  editar:   (id, data) => api.put(`/usuarios/${id}`, data).then(r => r.data),
+  excluir:  (id) => api.delete(`/usuarios/${id}`).then(r => r.data),
 };
 
 export const materiaisService = {
-  listar:   ()          => request('/materiais'),
-  criar:    (data)      => request('/materiais', { method: 'POST', body: JSON.stringify(data) }),
-  editar:   (id, data)  => request(`/materiais/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  excluir:  (id)        => request(`/materiais/${id}`, { method: 'DELETE' }),
+  listar:   () => api.get('/materiais').then(r => r.data),
+  criar:    (data) => api.post('/materiais', data).then(r => r.data),
+  editar:   (id, data) => api.put(`/materiais/${id}`, data).then(r => r.data),
+  excluir:  (id) => api.delete(`/materiais/${id}`).then(r => r.data),
 };
 
 export const requisicaoService = {
-  listar:   ()          => request('/requisicoes'),
-  criar:    (data)      => request('/requisicoes', { method: 'POST', body: JSON.stringify(data) }),
-  editar:   (id, data)  => request(`/requisicoes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  cancelar: (id)        => request(`/requisicoes/${id}/cancelar`, { method: 'PATCH' }),
+  listar:   () => api.get('/requisicoes').then(r => r.data),
+  criar:    (data) => api.post('/requisicoes', data).then(r => r.data),
+  editar:   (id, data) => api.put(`/requisicoes/${id}`, data).then(r => r.data),
+  cancelar: (id) => api.patch(`/requisicoes/${id}/cancelar`).then(r => r.data),
 };

@@ -3,6 +3,8 @@ import StatChip from '../components/ui/StatChip';
 import MiniBar from '../components/ui/MiniBar';
 import StatusPill from '../components/ui/StatusPill';
 import { useDashboard } from '../hooks/useDashboard';
+import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 // Status do banco → chave do StatusPill
 // 1 Aberta, 2 Em Separação, 3 Pronta, 4 Entregue, 5 Cancelada
@@ -30,10 +32,19 @@ const CORES_DEPTO = ['#4f6ef7','#10b981','#f59e0b','#7c3aed','#ef4444','#6b7280'
 
 export default function Dashboard() {
   const { dados, loading, erro, carregar } = useDashboard();
+  const { usuario, isAdmin, isFuncionario, isRequisitante } = useAuth();
+  const navigate = useNavigate();
 
   const hoje = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
+
+  const acoesRapidas = [
+    { emoji: '📦', label: 'Novo Material',   path: '/materiais',     show: isAdmin || isFuncionario },
+    { emoji: '👤', label: 'Novo Usuário',    path: '/usuarios',      show: isAdmin }, // 👈 só admin
+    { emoji: '📋', label: 'Nova Requisição', path: '/requisicoes',   show: true }, // 👈 todos podem agora
+    { emoji: '🏢', label: 'Departamento',    path: '/departamentos', show: isAdmin },
+  ].filter(a => a.show);
 
   if (loading) {
     return (
@@ -58,17 +69,24 @@ export default function Dashboard() {
   }
 
   // Calcula o maior total para normalizar as barras de departamento
-  const maxDepto = Math.max(...(dados?.requisicoesPorDepartamento?.map(d => d.total) ?? [1]));
+  const maxDepto = Math.max(
+    ...(dados?.requisicoesPorDepartamento?.map(d => d.total) ?? [1])
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
 
       {/* GREETING */}
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
           <h1 style={{ fontFamily: 'Syne', fontSize: 26, fontWeight: 800, color: 'var(--text)' }}>
-            Bom dia, <span style={{ background: 'linear-gradient(90deg,#4f6ef7,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Xavier</span> 👋
+            Bom dia, <span style={{
+              background: 'linear-gradient(90deg,#4f6ef7,#7c3aed)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}>
+              {usuario?.nome ?? 'Usuário'}
+            </span> 👋
           </h1>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6 }}>Aqui está um resumo do sistema hoje.</p>
         </div>
@@ -104,7 +122,12 @@ export default function Dashboard() {
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }}/>
               Requisições Recentes
             </div>
-            <span style={{ fontSize: 12, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}>Ver todas →</span>
+            <span
+              onClick={() => navigate('/requisicoes')}
+              style={{ fontSize: 12, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}
+            >
+              Ver todas →
+            </span>
           </div>
 
           {(!dados?.requisicoesMaisRecentes || dados.requisicoesMaisRecentes.length === 0) ? (
@@ -122,7 +145,12 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {dados.requisicoesMaisRecentes.map(r => {
-                  const initials = r.nomeRequisitante.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
+                  const initials = (r.nomeRequisitante || 'U')
+                    .split(' ')
+                    .slice(0,2)
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase();
                   return (
                     <tr key={r.idRequisicao}
                       onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.015)'}
@@ -162,7 +190,12 @@ export default function Dashboard() {
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--warning)' }}/>
               Estoque Crítico
             </div>
-            <span style={{ fontSize: 12, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}>Gerenciar →</span>
+            <span
+              onClick={() => navigate('/materiais')}
+              style={{ fontSize: 12, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500 }}
+            >
+              Gerenciar →
+            </span>
           </div>
 
           {(!dados?.estoqueCritico || dados.estoqueCritico.length === 0) ? (
@@ -201,19 +234,14 @@ export default function Dashboard() {
             Ações Rápidas
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: 16 }}>
-            {[
-              ['📦', 'Novo Material',    '/materiais'],
-              ['👤', 'Novo Usuário',     '/usuarios'],
-              ['📋', 'Nova Requisição',  '/requisicoes'],
-              ['🏢', 'Departamento',     '/departamentos'],
-            ].map(([emoji, label, path]) => (
-              <div key={label}
-                onClick={() => window.location.href = path}
+            {acoesRapidas.map((acao) => (
+              <div key={acao.path}
+                onClick={() => navigate(acao.path)} // Use navigate do react-router-dom em vez de window.location
                 style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor='var(--accent)'; e.currentTarget.style.background='var(--accent-glow)'; e.currentTarget.style.transform='scale(1.02)'; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='var(--surface2)'; e.currentTarget.style.transform='scale(1)'; }}>
-                <div style={{ fontSize: 22, marginBottom: 6 }}>{emoji}</div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{label}</div>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>{acao.emoji}</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{acao.label}</div>
               </div>
             ))}
           </div>
@@ -235,7 +263,7 @@ export default function Dashboard() {
               {dados.requisicoesPorDepartamento.map((d, i) => {
                 const pct = Math.round((d.total / maxDepto) * 100);
                 return (
-                  <div key={d.nomeDepartamento} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div key={d.idDepartamento} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 12, color: 'var(--text)', width: 80, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {d.nomeDepartamento}
                     </span>

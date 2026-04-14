@@ -3,8 +3,6 @@ import api from './api';
 const authService = {
   login: (email, senha) =>
     api.post('/auth/login', { email, senha }).then(r => r.data),
-    // Retorno esperado do Spring Boot:
-    // { token: "jwt...", usuario: { idUsuario, nome, email, tipo_perfil } }
 
   logout: () => {
     localStorage.removeItem('token');

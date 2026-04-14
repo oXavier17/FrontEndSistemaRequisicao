@@ -3,14 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle, RefreshCw } from 'lucide-react';
 import authService from '../services/authService';
 
-// Mude para false quando o back-end estiver pronto
-const USE_MOCK = true;
-
-const MOCK_USUARIO = {
-  token: 'mock-jwt-token',
-  usuario: { idUsuario: 1, nome: 'Xavier Admin', email: 'admin@empresa.com', tipo_perfil: 1 },
-};
-
 export default function Login() {
   const navigate = useNavigate();
 
@@ -32,20 +24,25 @@ export default function Login() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!email || !senha) { setErro('Preencha e-mail e senha.'); return; }
-
     try {
       setCarregando(true);
-      setErro(null);
+      const data = await authService.login(email, senha);
+      authService.salvarSessao(data.token, {
+        idUsuario:      data.idUsuario,
+        nome:           data.nome,
+        email:          data.email,
+        tipoPerfil:     data.tipoPerfil,
+        departamentoId: data.departamentoId,
+      });
 
-      const data = USE_MOCK
-        ? await Promise.resolve(MOCK_USUARIO)
-        : await authService.login(email, senha);
-
-      authService.salvarSessao(data.token, data.usuario);
-      navigate('/');
+      // Redireciona conforme o perfil
+      if (data.tipoPerfil === 3) {
+        navigate('/requisicoes'); // Requisitante vai direto para requisições
+      } else {
+        navigate('/');            // Admin e Funcionário vão para o dashboard
+      }
     } catch (e) {
-      setErro('E-mail ou senha incorretos.');
+      setErro(e.message || 'E-mail ou senha incorretos.');
     } finally {
       setCarregando(false);
     }

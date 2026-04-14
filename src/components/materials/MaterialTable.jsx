@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Power } from 'lucide-react';
 import MiniBar from '../ui/MiniBar';
 
 const filtros = [
-  { key: 'todos',    label: 'Todos'  },
-  { key: 'ok',       label: 'Normal' },
-  { key: 'low',      label: 'Baixo'  },
-  { key: 'critical', label: 'Crítico'},
+  { key: 'todos',    label: 'Todos'   },
+  { key: 'ok',       label: 'Normal'  },
+  { key: 'low',      label: 'Baixo'   },
+  { key: 'critical', label: 'Crítico' },
 ];
 
 function getStatus(m) {
@@ -22,17 +22,32 @@ const TH = ({ children }) => (
   </th>
 );
 
-export default function MaterialTable({ materiais, categorias, unidades, onEdit, onDelete }) {
-  const [filtro, setFiltro] = useState('todos');
-  const [busca, setBusca]   = useState('');
+export default function MaterialTable({
+  materiais, categorias, onEdit, onAlterarStatus,
+  mostrarInativos, onToggleInativos,
+}) {
+  const [filtro, setFiltro]     = useState('todos');
+  const [busca, setBusca]       = useState('');
+  const [alterando, setAlterando] = useState(null);
 
   const filtrados = materiais
     .filter(m => filtro === 'todos' || getStatus(m).key === filtro)
     .filter(m => m.nome.toLowerCase().includes(busca.toLowerCase()));
 
-  // Resolve nome da categoria/unidade pelo id
   const nomeCategoria = (id) => categorias.find(c => c.idCategoria === id)?.nome ?? '—';
-  const nomeUnidade   = (id) => unidades.find(u => u.idUnMed === id)?.nome ?? '—';
+
+  const handleAlterarStatus = async (id, statusAtual) => {
+    const acao = statusAtual === 1 ? 'inativar' : 'ativar';
+    if (!confirm(`Tem certeza que deseja ${acao} este material?`)) return;
+    try {
+      setAlterando(id);
+      await onAlterarStatus(id);
+    } catch (e) {
+      alert('Erro: ' + e.message);
+    } finally {
+      setAlterando(null);
+    }
+  };
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', animation: 'fadeUp 0.35s ease 0.12s both' }}>
@@ -51,12 +66,25 @@ export default function MaterialTable({ materiais, categorias, unidades, onEdit,
             </button>
           ))}
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Toggle inativos */}
+          <button onClick={onToggleInativos}
+            style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', fontFamily: 'DM Sans', transition: 'all 0.15s',
+              background: mostrarInativos ? 'rgba(245,158,11,0.1)' : 'var(--surface2)',
+              border: `1px solid ${mostrarInativos ? 'rgba(245,158,11,0.3)' : 'var(--border)'}`,
+              color: mostrarInativos ? '#f59e0b' : 'var(--muted)',
+            }}>
+            {mostrarInativos ? 'Ver apenas ativos' : 'Ver inativos'}
+          </button>
+
+          {/* Busca */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 12px' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
             <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar material..."
               style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 12, fontFamily: 'DM Sans', width: 140 }}/>
           </div>
+
           <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{filtrados.length} materiais</span>
         </div>
       </div>
@@ -79,17 +107,18 @@ export default function MaterialTable({ materiais, categorias, unidades, onEdit,
               <TH>Categoria</TH>
               <TH>Estoque</TH>
               <TH>Unidade</TH>
-              <TH>Preço Unit.</TH>
               <TH>Status</TH>
+              <TH>Situação</TH>
               <TH>Ações</TH>
             </tr>
           </thead>
           <tbody>
             {filtrados.map(m => {
-              const st    = getStatus(m);
-              const preco = Number(m.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+              const st   = getStatus(m);
+              const ativo = m.status === 1;
               return (
                 <tr key={m.idMaterial}
+                  style={{ opacity: ativo ? 1 : 0.5 }}
                   onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.015)'}
                   onMouseLeave={e => e.currentTarget.style.background='transparent'}>
 
@@ -114,11 +143,11 @@ export default function MaterialTable({ materiais, categorias, unidades, onEdit,
                     <MiniBar value={m.estoqueAtual} min={m.estoqueMin}/>
                   </td>
 
-                  <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ fontFamily: 'Syne', fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>R$ {preco}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>por {nomeUnidade(m.unMedId)}</div>
+                  <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
+                    {m.unidade ?? '—'}
                   </td>
 
+                  {/* Status do estoque */}
                   <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: `${st.color}18`, color: st.color }}>
                       <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }}/>
@@ -126,19 +155,42 @@ export default function MaterialTable({ materiais, categorias, unidades, onEdit,
                     </span>
                   </td>
 
+                  {/* Situação ativo/inativo */}
+                  <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500,
+                      background: ativo ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                      color: ativo ? '#10b981' : '#ef4444',
+                    }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }}/>
+                      {ativo ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+
                   <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', gap: 6 }}>
+                      {/* Editar */}
                       <button onClick={() => onEdit(m)} title="Editar"
                         style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.background='rgba(79,110,247,0.1)'; e.currentTarget.style.borderColor='rgba(79,110,247,0.2)'; e.currentTarget.style.color='#4f6ef7'; }}
                         onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
                         <Pencil size={13}/>
                       </button>
-                      <button onClick={() => onDelete(m.idMaterial)} title="Excluir"
-                        style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s' }}
-                        onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,0.1)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.2)'; e.currentTarget.style.color='#ef4444'; }}
+
+                      {/* Ativar/Inativar */}
+                      <button onClick={() => handleAlterarStatus(m.idMaterial, m.status)}
+                        disabled={alterando === m.idMaterial}
+                        title={ativo ? 'Inativar' : 'Ativar'}
+                        style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'none', cursor: alterando === m.idMaterial ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s' }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = ativo ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)';
+                          e.currentTarget.style.borderColor = ativo ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)';
+                          e.currentTarget.style.color = ativo ? '#ef4444' : '#10b981';
+                        }}
                         onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
-                        <Trash2 size={13}/>
+                        {alterando === m.idMaterial
+                          ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+                          : <Power size={13}/>
+                        }
                       </button>
                     </div>
                   </td>
@@ -154,6 +206,8 @@ export default function MaterialTable({ materiais, categorias, unidades, onEdit,
           Nenhum material encontrado.
         </div>
       )}
+
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>
   );
 }

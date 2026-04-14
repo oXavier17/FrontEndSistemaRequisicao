@@ -1,10 +1,9 @@
 import api from './api';
 
 const categoriasService = {
-  listar:  ()          => api.get('/categorias').then(r => r.data),
-  criar:   (nome)      => api.post('/categorias', { nome }).then(r => r.data),
-  editar:  (id, nome)  => api.put(`/categorias/${id}`, { nome }).then(r => r.data),
-  excluir: (id)        => api.delete(`/categorias/${id}`),
+  listar:        (todos = false) => api.get(`/categorias?todos=${todos}`).then(r => r.data),
+  criar:         (data)          => api.post('/categorias', data).then(r => r.data),
+  editar:        (id, data)      => api.put(`/categorias/${id}`, data).then(r => r.data),
+  alterarStatus: (id)            => api.patch(`/categorias/${id}/status`).then(r => r.data),
 };
-
 export default categoriasService;

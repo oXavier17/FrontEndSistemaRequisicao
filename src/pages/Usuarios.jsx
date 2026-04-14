@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Users, UserCheck, Pencil, Trash2, Save, Info, Eye, EyeOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { Users, UserCheck, Pencil, Power, Save, Info, Eye, EyeOff, RefreshCw, AlertCircle } from 'lucide-react';
 import StatChip from '../components/ui/StatChip';
 import { useUsuarios, intParaPerfil } from '../hooks/useUsuarios';
 import { useDepartamentos } from '../hooks/useDepartamentos';
+import { useAuth } from '../hooks/useAuth';
+import { Navigate } from 'react-router-dom';
 
 const PERFIS = ['Administrador', 'Funcionário', 'Requisitante'];
 
@@ -29,8 +31,12 @@ function formatCPF(value) {
 }
 
 export default function Usuarios() {
-  const { usuarios, loading, erro, carregar, criar, editar, excluir } = useUsuarios();
+  const { usuarios, loading, erro, carregar, criar, editar, alterarStatus, mostrarInativos, setMostrarInativos } = useUsuarios();
+  const [alterando, setAlterando] = useState(null);
   const { departamentos } = useDepartamentos();
+  const { isAdmin } = useAuth();
+
+  if (!isAdmin) return <Navigate to="/" replace />;
 
   const [form, setForm]               = useState(emptyForm);
   const [editando, setEditando]       = useState(null);
@@ -88,18 +94,21 @@ export default function Usuarios() {
       email:         u.email,
       senha:         '',
       // converte int do banco → label legível
-      perfil:        intParaPerfil(u.tipo_perfil),
+      perfil:        intParaPerfil(u.tipoPerfil),
       departamentoId: u.departamentoId ?? '',
     });
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
+  const handleAlterarStatus = async (u) => {
+    const acao = u.status === 1 ? 'inativar' : 'ativar';
+    if (!confirm(`Tem certeza que deseja ${acao} "${u.nome}"?`)) return;
     try {
-      await excluir(id);
-      if (editando?.idUsuario === id) handleCancel();
+      setAlterando(u.idUsuario);
+      await alterarStatus(u.idUsuario);
     } catch (e) {
-      alert('Erro ao excluir: ' + e.message);
+      alert('Erro: ' + e.message);
+    } finally {
+      setAlterando(null);
     }
   };
 
@@ -107,16 +116,16 @@ export default function Usuarios() {
 
   // Filtragem local
   const visiveis = usuarios
-    .filter(u => filtroPerfil === 'todos' || intParaPerfil(u.tipo_perfil) === filtroPerfil)
+    .filter(u => filtroPerfil === 'todos' || intParaPerfil(u.tipoPerfil) === filtroPerfil)
     .filter(u =>
       u.nome.toLowerCase().includes(busca.toLowerCase()) ||
       u.email.toLowerCase().includes(busca.toLowerCase())
     );
 
   const total        = usuarios.length;
-  const admins       = usuarios.filter(u => u.tipo_perfil === 1).length;
-  const funcionarios = usuarios.filter(u => u.tipo_perfil === 2).length;
-  const requisitantes= usuarios.filter(u => u.tipo_perfil === 3).length;
+  const admins       = usuarios.filter(u => u.tipoPerfil === 1).length;
+  const funcionarios = usuarios.filter(u => u.tipoPerfil === 2).length;
+  const requisitantes= usuarios.filter(u => u.tipoPerfil === 3).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -293,6 +302,14 @@ export default function Usuarios() {
               ))}
             </div>
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button onClick={() => setMostrarInativos(v => !v)}
+                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', fontFamily: 'DM Sans', transition: 'all 0.15s',
+                  background: mostrarInativos ? 'rgba(245,158,11,0.1)' : 'var(--surface2)',
+                  border: `1px solid ${mostrarInativos ? 'rgba(245,158,11,0.3)' : 'var(--border)'}`,
+                  color: mostrarInativos ? '#f59e0b' : 'var(--muted)',
+                }}>
+                {mostrarInativos ? 'Ver apenas ativos' : 'Ver inativos'}
+              </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 12px' }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
                 <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nome ou email..."
@@ -330,7 +347,7 @@ export default function Usuarios() {
               </thead>
               <tbody>
                 {visiveis.map(u => {
-                  const perfilLabel = intParaPerfil(u.tipo_perfil);
+                  const perfilLabel = intParaPerfil(u.tipoPerfil);
                   const ps = perfilStyle[perfilLabel];
                   const initials = u.nome.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
                   // Resolve nome do departamento pelo id
@@ -338,8 +355,9 @@ export default function Usuarios() {
 
                   return (
                     <tr key={u.idUsuario}
-                      onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.015)'}
-                      onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                      style={{ opacity: u.status === 1 ? 1 : 0.5 }}
+                        onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.015)'}
+                        onMouseLeave={e => e.currentTarget.style.background='transparent'}>
 
                       <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -371,9 +389,9 @@ export default function Usuarios() {
                       <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500,
                           background: u.status ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                          color: u.status ? '#10b981' : '#ef4444' }}>
+                          color: u.status === 1 ? '#10b981' : '#ef4444' }}>
                           <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }}/>
-                          {u.status ? 'Ativo' : 'Inativo'}
+                          {u.status === 1 ? 'Ativo' : 'Inativo'}
                         </span>
                       </td>
 
@@ -385,11 +403,21 @@ export default function Usuarios() {
                             onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
                             <Pencil size={13}/>
                           </button>
-                          <button onClick={() => handleDelete(u.idUsuario)} title="Excluir"
-                            style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.background='rgba(239,68,68,0.1)'; e.currentTarget.style.borderColor='rgba(239,68,68,0.2)'; e.currentTarget.style.color='#ef4444'; }}
+                          <button onClick={() => handleAlterarStatus(u)}
+                            disabled={alterando === u.idUsuario}
+                            title={u.status === 1 ? 'Inativar' : 'Ativar'}
+                            style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'none', cursor: alterando === u.idUsuario ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s' }}
+                            onMouseEnter={e => {
+                              const ativo = u.status === 1;
+                              e.currentTarget.style.background    = ativo ? 'rgba(239,68,68,0.1)'  : 'rgba(16,185,129,0.1)';
+                              e.currentTarget.style.borderColor   = ativo ? 'rgba(239,68,68,0.2)'  : 'rgba(16,185,129,0.2)';
+                              e.currentTarget.style.color         = ativo ? '#ef4444'              : '#10b981';
+                            }}
                             onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
-                            <Trash2 size={13}/>
+                            {alterando === u.idUsuario
+                              ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }}/>
+                              : <Power size={13}/>
+                            }
                           </button>
                         </div>
                       </td>
