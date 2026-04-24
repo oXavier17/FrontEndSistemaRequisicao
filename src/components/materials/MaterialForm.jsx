@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save, Info, AlertCircle, RefreshCw } from 'lucide-react';
+import BuscaDropdown from '../ui/BuscaDropdown';
 
 // Enum de unidades — definido no back-end, espelhado aqui
 const UNIDADES_ENUM = [
@@ -24,9 +25,12 @@ const Field = ({ label, children }) => (
 
 export default function MaterialForm({ editando, onSave, onCancel, categorias, salvando, erroForm, setErroForm }) {
   const [form, setForm] = useState(emptyForm);
+  const [categoriaSel, setCategoriaSel] = useState(null);
 
   useEffect(() => {
     if (editando) {
+      const cat = categorias.find(c => c.idCategoria === editando.categoriaId)
+      if (cat) setCategoriaSel({ id: cat.idCategoria, label: cat.nome });
       setForm({
         nome:        editando.nome,
         categoriaId: String(editando.categoriaId),
@@ -34,9 +38,18 @@ export default function MaterialForm({ editando, onSave, onCancel, categorias, s
         minimo:      String(editando.estoqueMin),
       });
     } else {
+      setCategoriaSel(null);
       setForm(emptyForm);
     }
   }, [editando]);
+
+  useEffect(() => {
+    // Se parou de salvar, não tem erro na tela e NÃO estamos editando, limpa o form
+    if (!salvando && !erroForm && !editando) {
+      setForm(emptyForm);
+      setCategoriaSel(null);
+    }
+  }, [salvando, erroForm, editando]);
 
   const set = (field, value) => { setForm(f => ({ ...f, [field]: value })); setErroForm?.(null); };
 
@@ -82,14 +95,22 @@ export default function MaterialForm({ editando, onSave, onCancel, categorias, s
         </Field>
 
         <Field label="Categoria *">
-          <select style={inputStyle} value={form.categoriaId}
-            onChange={e => set('categoriaId', e.target.value)}
-            onFocus={focusStyle} onBlur={blurStyle} disabled={salvando}>
-            <option value="" disabled>Selecione a categoria...</option>
-            {categorias.map(c => (
-              <option key={c.idCategoria} value={c.idCategoria}>{c.nome}</option>
-            ))}
-          </select>
+          <BuscaDropdown
+            placeholder="Digite para buscar categoria..."
+            itens={categorias.map(c => ({
+              id:    c.idCategoria,
+              label: c.nome,
+            }))}
+            selecionado={categoriaSel}
+            onSelecionar={item => {
+              setCategoriaSel(item);
+              set('categoriaId', item.id);
+            }}
+            onLimpar={() => {
+              setCategoriaSel(null);
+              set('categoriaId', '');
+            }}
+          />
         </Field>
 
         {/* Unidade como enum — select fixo, sem cadastro */}

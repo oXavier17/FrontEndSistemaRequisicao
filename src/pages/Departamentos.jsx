@@ -15,6 +15,11 @@ export default function Departamentos() {
   const [salvando, setSalvando]   = useState(false);
   const [alterando, setAlterando] = useState(null);
   const [erroForm, setErroForm]   = useState(null);
+  const [busca, setBusca] = useState('');
+
+  const deptosFiltrados = departamentos.filter(d =>
+    d.nome.toLowerCase().includes(busca.toLowerCase())
+  );
 
   // --- Estilos Auxiliares ---
   const inputStyle = {
@@ -158,56 +163,95 @@ export default function Departamentos() {
         </div>
 
         {/* LISTAGEM */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          
+          {/* Header da Listagem */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             <div style={{ fontFamily: 'Syne', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)' }}/>
-              Departamentos
+              Departamentos Cadastrados
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button onClick={() => setMostrarInativos(v => !v)}
-                style={{ fontSize: 11, padding: '5px 12px', borderRadius: 20, cursor: 'pointer', border: '1px solid var(--border)', background: mostrarInativos ? 'rgba(245,158,11,0.1)' : 'var(--surface2)', color: mostrarInativos ? '#f59e0b' : 'var(--muted)', transition: 'all 0.2s' }}>
-                {mostrarInativos ? 'Esconder Inativos' : 'Ver Inativos'}
+                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', fontFamily: 'DM Sans', transition: 'all 0.15s',
+                  background: mostrarInativos ? 'rgba(245,158,11,0.1)' : 'var(--surface2)',
+                  border: `1px solid ${mostrarInativos ? 'rgba(245,158,11,0.3)' : 'var(--border)'}`,
+                  color: mostrarInativos ? '#f59e0b' : 'var(--muted)',
+                }}>
+                {mostrarInativos ? 'Ver ativos' : 'Ver inativos'}
               </button>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{departamentos.length} registros</span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{deptosFiltrados.length} registros</span>
             </div>
           </div>
 
-          {departamentos.length === 0 && !loading && (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Nenhum departamento encontrado.</div>
+          {/* Barra de Busca (Aparece se houver muitos registros) */}
+          {(departamentos.length > 5 || busca) && (
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input value={busca} onChange={e => setBusca(e.target.value)}
+                  placeholder="Buscar departamento..."
+                  style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 12, fontFamily: 'DM Sans', width: '100%' }}/>
+                {busca && (
+                  <button onClick={() => setBusca('')}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14, padding: 0 }}>✕</button>
+                )}
+              </div>
+            </div>
           )}
 
-          {departamentos.map((dep, i) => {
-            const ativo = dep.status === 1;
-            return (
-              <div key={dep.idDepartamento}
-                style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 20px', borderBottom: i < departamentos.length - 1 ? '1px solid var(--border)' : 'none', opacity: ativo ? 1 : 0.6 }}>
-                
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(79,110,247,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Building2 size={18} color="var(--accent)"/>
-                </div>
+          {/* Container com Scroll */}
+          <div style={{ overflowY: 'auto', maxHeight: '450px', scrollbarWidth: 'thin', scrollbarColor: 'var(--border) transparent' }}>
+            {loading && (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 13 }}>
+                <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }}/> Carregando departamentos...
+              </div>
+            )}
 
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{dep.nome}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontWeight: 600 }}>ID {dep.idDepartamento}</span>
-                    <span style={{ color: ativo ? '#10b981' : '#ef4444' }}>● {ativo ? 'Ativo' : 'Inativo'}</span>
+            {!loading && deptosFiltrados.length === 0 && (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                {busca ? 'Nenhum resultado para a busca.' : 'Nenhum departamento encontrado.'}
+              </div>
+            )}
+
+            {!loading && deptosFiltrados.map((dep, i) => {
+              const ativo = dep.status === 1;
+              return (
+                <div key={dep.idDepartamento}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.01)'}
+                  onMouseLeave={e => e.currentTarget.style.background='transparent'}
+                  style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '12px 20px', borderBottom: i < deptosFiltrados.length - 1 ? '1px solid var(--border)' : 'none', opacity: ativo ? 1 : 0.6, transition: 'background 0.2s' }}>
+                  
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: ativo ? 'rgba(79,110,247,0.1)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Building2 size={16} color={ativo ? 'var(--accent)' : 'var(--muted)'}/>
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{dep.nome}</div>
+                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 600 }}>ID {String(dep.idDepartamento).padStart(3, '0')}</span>
+                      <span style={{ color: ativo ? '#10b981' : '#ef4444' }}>● {ativo ? 'Ativo' : 'Inativo'}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => handleEdit(dep)} title="Editar"
+                      style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted)', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--accent)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--muted)'; }}>
+                      <Pencil size={14}/>
+                    </button>
+                    <button onClick={() => handleAlterarStatus(dep)} disabled={alterando === dep.idDepartamento} title={ativo ? "Desativar" : "Ativar"}
+                      style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: ativo ? '#ef4444' : '#10b981', transition: 'all 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = ativo ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                      {alterando === dep.idDepartamento ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }}/> : <Power size={14}/>}
+                    </button>
                   </div>
                 </div>
-
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => handleEdit(dep)} title="Editar"
-                    style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
-                    <Pencil size={14}/>
-                  </button>
-                  <button onClick={() => handleAlterarStatus(dep)} disabled={alterando === dep.idDepartamento}
-                    style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: 'none', cursor: 'pointer', color: ativo ? '#ef4444' : '#10b981' }}>
-                    {alterando === dep.idDepartamento ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }}/> : <Power size={14}/>}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

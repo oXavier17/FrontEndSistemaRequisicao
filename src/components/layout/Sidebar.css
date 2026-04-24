@@ -6,6 +6,7 @@
   flex-direction: column;
   flex-shrink: 0;
   height: 100vh;
+  transition: background 0.3s, border-color 0.3s;
 }
 .logo-area { padding: 28px 24px 24px; border-bottom: 1px solid var(--border); }
 .logo-badge { display: flex; align-items: center; gap: 10px; }
@@ -14,12 +15,12 @@
 .logo-text span { display: block; font-size: 10px; font-weight: 400; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
 .nav-section { padding: 20px 12px 8px; flex: 1; }
 .nav-label { font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding: 0 12px; margin-bottom: 8px; }
-.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: all 0.2s; color: var(--muted); font-size: 14px; text-decoration: none; margin-bottom: 2px; border: 1px solid transparent; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: all 0.2s; color: var(--muted); font-size: 14px; text-decoration: none; margin-bottom: 2px; border: 1px solid transparent; transition: all 0.2s;}
 .nav-item:hover { background: var(--surface2); color: var(--text); }
 .nav-item.active { background: var(--accent-glow); color: var(--accent); border-color: rgba(79,110,247,0.2); }
 .nav-badge { margin-left: auto; background: var(--accent); color: white; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; }
 .sidebar-footer { padding: 16px 12px; border-top: 1px solid var(--border); }
-.user-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: all 0.2s; }
+.user-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: all 0.2s; transition: all 0.2s;}
 .user-card:hover { background: var(--surface2); }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: white; flex-shrink: 0; }
 .user-info { flex: 1; min-width: 0; }

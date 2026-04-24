@@ -10,14 +10,33 @@ const filtros = [
 ];
 
 function getStatus(m) {
-  const ratio = m.estoqueMin > 0 ? m.estoqueAtual / m.estoqueMin : 1;
+  if (!m) return { key: 'ok', label: '—', color: 'var(--muted)' };
+  
+  // Evita divisão por zero e garante que estoqueMin tenha um valor base
+  const min = m.estoqueMin || 1; 
+  const ratio = m.estoqueAtual / min;
+  
   if (ratio <= 0.5) return { key: 'critical', label: 'Crítico', color: '#ef4444' };
   if (ratio < 1)    return { key: 'low',      label: 'Baixo',   color: '#f59e0b' };
-  return               { key: 'ok',       label: 'Normal',  color: '#10b981' };
+  return             { key: 'ok',       label: 'Normal',  color: '#10b981' };
 }
 
 const TH = ({ children }) => (
-  <th style={{ textAlign: 'left', fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--muted)', padding: '11px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)', whiteSpace: 'nowrap' }}>
+  <th style={{
+    textAlign: 'left',
+    fontSize: 11,
+    fontWeight: 500,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    color: 'var(--muted)',
+    padding: '11px 16px',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--surface)', // ← fundo sólido para não vazar conteúdo
+    whiteSpace: 'nowrap',
+    position: 'sticky', // ← mantém fixo
+    top: 0,
+    zIndex: 1,
+  }}>
     {children}
   </th>
 );
@@ -31,8 +50,16 @@ export default function MaterialTable({
   const [alterando, setAlterando] = useState(null);
 
   const filtrados = materiais
-    .filter(m => filtro === 'todos' || getStatus(m).key === filtro)
-    .filter(m => m.nome.toLowerCase().includes(busca.toLowerCase()));
+    .filter(m => {
+    // 1. Filtro de Ativos/Inativos (Crucial!)
+    const atendeStatus = mostrarInativos ? true : m.status === 1;
+    // 2. Filtro de Nível de Estoque
+    const atendeNivel = filtro === 'todos' || getStatus(m).key === filtro;
+    // 3. Filtro de Busca por Nome
+    const atendeBusca = m.nome.toLowerCase().includes(busca.toLowerCase());
+    
+    return atendeStatus && atendeNivel && atendeBusca;
+  });
 
   const nomeCategoria = (id) => categorias.find(c => c.idCategoria === id)?.nome ?? '—';
 
@@ -50,7 +77,16 @@ export default function MaterialTable({
   };
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', animation: 'fadeUp 0.35s ease 0.12s both' }}>
+    <div style={{ 
+      background: 'var(--surface)', 
+      border: '1px solid var(--border)', 
+      borderRadius: 16, 
+      overflow: 'hidden', 
+      animation: 'fadeUp 0.35s ease 0.12s both',
+      display: 'flex',
+      flexDirection: 'column',
+      maxHeight: '520px',
+    }}>
 
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
@@ -100,19 +136,25 @@ export default function MaterialTable({
 
       {/* Tabela */}
       {filtrados.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <TH>Material</TH>
-              <TH>Categoria</TH>
-              <TH>Estoque</TH>
-              <TH>Unidade</TH>
-              <TH>Status</TH>
-              <TH>Situação</TH>
-              <TH>Ações</TH>
-            </tr>
-          </thead>
-          <tbody>
+        <div style={{
+          overflowY: 'auto',
+          flex: 1,
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'var(--border) transparent',
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                <TH>Material</TH>
+                <TH>Categoria</TH>
+                <TH>Estoque</TH>
+                <TH>Unidade</TH>
+                <TH>Status</TH>
+                <TH>Situação</TH>
+                <TH>Ações</TH>
+              </tr>
+            </thead>
+            <tbody>
             {filtrados.map(m => {
               const st   = getStatus(m);
               const ativo = m.status === 1;
@@ -199,6 +241,7 @@ export default function MaterialTable({
             })}
           </tbody>
         </table>
+      </div>
       )}
 
       {materiais.length > 0 && filtrados.length === 0 && (

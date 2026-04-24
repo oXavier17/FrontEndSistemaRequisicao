@@ -16,12 +16,29 @@
   --sidebar-w: 240px;
 }
 
+/* ── TEMA CLARO ── */
+:root.light {
+  --bg: #f0f2f7;
+  --surface: #ffffff;
+  --surface2: #f0f2f7;
+  --border: rgba(0,0,0,0.08);
+  --accent: #4f6ef7;
+  --accent2: #7c3aed;
+  --accent-glow: rgba(79,110,247,0.12);
+  --text: #111827;
+  --muted: #6b7280;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--bg);
   color: var(--text);
   height: 100vh;
   overflow: hidden;
+  transition: background 0.3s, color 0.3s;
 }
 
 @keyframes fadeUp {

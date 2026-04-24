@@ -184,8 +184,10 @@ export default function Dashboard() {
         </div>
 
         {/* ESTOQUE CRÍTICO */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', animation: 'fadeUp 0.4s ease 0.28s both' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', animation: 'fadeUp 0.4s ease 0.28s both', display: 'flex', flexDirection: 'column' }}>
+          
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             <div style={{ fontFamily: 'Syne', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--warning)' }}/>
               Estoque Crítico
@@ -198,29 +200,55 @@ export default function Dashboard() {
             </span>
           </div>
 
-          {(!dados?.estoqueCritico || dados.estoqueCritico.length === 0) ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-              ✅ Nenhum item crítico no momento.
-            </div>
-          ) : (
-            dados.estoqueCritico.map((item, i) => {
-              const ratio = item.estoqueMin > 0 ? item.estoqueAtual / item.estoqueMin : 1;
-              const cor = ratio <= 0.5 ? '#ef4444' : ratio < 1 ? '#f59e0b' : '#10b981';
-              return (
-                <div key={item.idMaterial} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: i < dados.estoqueCritico.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: `${cor}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>📦</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.nome}</div>
-                    <MiniBar value={item.estoqueAtual} min={item.estoqueMin}/>
+          {/* Container com Scroll Interno */}
+          <div style={{ 
+            overflowY: 'auto', 
+            maxHeight: '280px', // Altura fixa para não quebrar o layout do dash
+            scrollbarWidth: 'thin', 
+            scrollbarColor: 'var(--border) transparent' 
+          }}>
+            {(!dados?.estoqueCritico || dados.estoqueCritico.length === 0) ? (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>✅</div>
+                Nenhum item crítico no momento.
+              </div>
+            ) : (
+              dados.estoqueCritico.map((item, i) => {
+                const ratio = item.estoqueMin > 0 ? item.estoqueAtual / item.estoqueMin : 1;
+                const cor = ratio <= 0.5 ? '#ef4444' : ratio < 1 ? '#f59e0b' : '#10b981';
+                
+                return (
+                  <div key={item.materialId} 
+                    onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.01)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 12, 
+                      padding: '12px 20px', 
+                      borderBottom: i < dados.estoqueCritico.length - 1 ? '1px solid var(--border)' : 'none',
+                      transition: 'background 0.2s'
+                    }}>
+                    
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: `${cor}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>📦</div>
+                    
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} 
+                        title={item.materialNome}>
+                        {item.materialNome}
+                      </div>
+                      <MiniBar value={item.estoqueAtual} min={item.estoqueMin}/>
+                    </div>
+                    
+                    <div style={{ textAlign: 'right', flexShrink: 0, paddingLeft: 8 }}>
+                      <div style={{ fontFamily: 'Syne', fontSize: 15, fontWeight: 700, color: cor }}>{item.estoqueAtual}</div>
+                      <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>{item.nomeUnidade}</div>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontFamily: 'Syne', fontSize: 16, fontWeight: 700, color: cor }}>{item.estoqueAtual}</div>
-                    <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase' }}>{item.nomeUnidade}</div>
-                  </div>
-                </div>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 

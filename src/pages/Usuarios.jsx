@@ -5,6 +5,7 @@ import { useUsuarios, intParaPerfil } from '../hooks/useUsuarios';
 import { useDepartamentos } from '../hooks/useDepartamentos';
 import { useAuth } from '../hooks/useAuth';
 import { Navigate } from 'react-router-dom';
+import BuscaDropdown from '../components/ui/BuscaDropdown';
 
 const PERFIS = ['Administrador', 'Funcionário', 'Requisitante'];
 
@@ -45,6 +46,7 @@ export default function Usuarios() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [busca, setBusca]             = useState('');
   const [filtroPerfil, setFiltroPerfil] = useState('todos');
+  const [deptoSelecionado, setDeptoSelecionado] = useState(null);
 
   const set = (field, value) => { setForm(f => ({ ...f, [field]: value })); setErroForm(null); };
   const temDepartamento = form.perfil === 'Funcionário' || form.perfil === 'Requisitante';
@@ -77,6 +79,7 @@ export default function Usuarios() {
       } else {
         await criar(form);
       }
+      setDeptoSelecionado(null);
       setForm(emptyForm);
     } catch (e) {
       setErroForm(e.message);
@@ -88,13 +91,14 @@ export default function Usuarios() {
   const handleEdit = (u) => {
     setEditando(u);
     setErroForm(null);
+    const depto = departamentos.find(d => d.idDepartamento === u.departamentoId);
+    setDeptoSelecionado(depto ? { id: depto.idDepartamento, label: depto.nome } : null);
     setForm({
-      nome:          u.nome,
-      cpf:           u.cpf,
-      email:         u.email,
-      senha:         '',
-      // converte int do banco → label legível
-      perfil:        intParaPerfil(u.tipoPerfil),
+      nome:           u.nome,
+      cpf:            u.cpf,
+      email:          u.email,
+      senha:          '',
+      perfil:         intParaPerfil(u.tipoPerfil),
       departamentoId: u.departamentoId ?? '',
     });
   };
@@ -112,7 +116,12 @@ export default function Usuarios() {
     }
   };
 
-  const handleCancel = () => { setEditando(null); setForm(emptyForm); setErroForm(null); };
+  const handleCancel = () => {
+    setEditando(null);
+    setForm(emptyForm);
+    setErroForm(null);
+    setDeptoSelecionado(null);
+  };
 
   // Filtragem local
   const visiveis = usuarios
@@ -230,20 +239,21 @@ export default function Usuarios() {
             {/* Departamento — select com dados reais da API */}
             {temDepartamento && (
               <Field label="Departamento *">
-                <select style={{ ...inputStyle, borderColor: 'rgba(79,110,247,0.3)' }}
-                  value={form.departamentoId}
-                  onChange={e => set('departamentoId', Number(e.target.value))}
-                  onFocus={focusStyle} onBlur={blurStyle} disabled={salvando}>
-                  <option value="" disabled>Selecione o departamento...</option>
-                  {departamentos
+                <BuscaDropdown
+                  placeholder="Digite para buscar departamento..."
+                  itens={departamentos
                     .filter(d => d.status === 1)
-                    .map(d => (
-                      <option key={d.idDepartamento} value={d.idDepartamento}>
-                        {d.nome}
-                      </option>
-                    ))
-                  }
-                </select>
+                    .map(d => ({ id: d.idDepartamento, label: d.nome }))}
+                  selecionado={deptoSelecionado}
+                  onSelecionar={item => {
+                    setDeptoSelecionado(item);
+                    set('departamentoId', item.id);
+                  }}
+                  onLimpar={() => {
+                    setDeptoSelecionado(null);
+                    set('departamentoId', '');
+                  }}
+                />
               </Field>
             )}
 
@@ -337,95 +347,105 @@ export default function Usuarios() {
 
           {/* Tabela */}
           {!loading && visiveis.length > 0 && (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['Usuário', 'CPF', 'E-mail', 'Perfil', 'Departamento', 'Status', 'Ações'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--muted)', padding: '11px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visiveis.map(u => {
-                  const perfilLabel = intParaPerfil(u.tipoPerfil);
-                  const ps = perfilStyle[perfilLabel];
-                  const initials = u.nome.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
-                  // Resolve nome do departamento pelo id
-                  const depNome = departamentos.find(d => d.idDepartamento === u.departamentoId)?.nome ?? '—';
+            <div style={{ overflowY: 'auto', overflowX: 'auto', maxHeight: '460px', scrollbarWidth: 'thin', scrollbarColor: 'var(--border) transparent' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Usuário', 'CPF', 'E-mail', 'Perfil', 'Departamento', 'Status', 'Ações'].map(h => (
+                      <th key={h} style={{
+                        textAlign: 'left', fontSize: 11, fontWeight: 500,
+                        letterSpacing: '0.06em', textTransform: 'uppercase',
+                        color: 'var(--muted)', padding: '11px 16px',
+                        borderBottom: '1px solid var(--border)',
+                        background: 'var(--surface)', // ← fundo sólido
+                        whiteSpace: 'nowrap',
+                        position: 'sticky', top: 0, zIndex: 1, // ← header fixo
+                      }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visiveis.map(u => {
+                    const perfilLabel = intParaPerfil(u.tipoPerfil);
+                    const ps = perfilStyle[perfilLabel];
+                    const initials = u.nome.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
+                    // Resolve nome do departamento pelo id
+                    const depNome = departamentos.find(d => d.idDepartamento === u.departamentoId)?.nome ?? '—';
 
-                  return (
-                    <tr key={u.idUsuario}
-                      style={{ opacity: u.status === 1 ? 1 : 0.5 }}
-                        onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.015)'}
-                        onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    return (
+                      <tr key={u.idUsuario}
+                        style={{ opacity: u.status === 1 ? 1 : 0.5 }}
+                          onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.015)'}
+                          onMouseLeave={e => e.currentTarget.style.background='transparent'}>
 
-                      <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 34, height: 34, borderRadius: '50%', background: `linear-gradient(135deg,${ps.color},${ps.color}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Syne', fontSize: 12, fontWeight: 700, color: 'white', flexShrink: 0 }}>
-                            {initials}
+                        <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 34, height: 34, borderRadius: '50%', background: `linear-gradient(135deg,${ps.color},${ps.color}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Syne', fontSize: 12, fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                              {initials}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{u.nome}</div>
+                              <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'Syne' }}>ID {u.idUsuario}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{u.nome}</div>
-                            <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'Syne' }}>ID {u.idUsuario}</div>
+                        </td>
+
+                        <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--muted)', fontFamily: 'Syne', fontWeight: 600 }}>{u.cpf}</td>
+
+                        <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--text)' }}>{u.email}</td>
+
+                        <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: ps.bg, color: ps.color }}>
+                            {ps.emoji} {perfilLabel}
+                          </span>
+                        </td>
+
+                        <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, color: depNome !== '—' ? 'var(--text)' : 'var(--muted)' }}>
+                          {depNome}
+                        </td>
+
+                        {/* Status vindo do banco (bit) */}
+                        <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500,
+                            background: u.status ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                            color: u.status === 1 ? '#10b981' : '#ef4444' }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }}/>
+                            {u.status === 1 ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+
+                        <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={() => handleEdit(u)} title="Editar"
+                              style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s' }}
+                              onMouseEnter={e => { e.currentTarget.style.background='rgba(79,110,247,0.1)'; e.currentTarget.style.borderColor='rgba(79,110,247,0.2)'; e.currentTarget.style.color='#4f6ef7'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
+                              <Pencil size={13}/>
+                            </button>
+                            <button onClick={() => handleAlterarStatus(u)}
+                              disabled={alterando === u.idUsuario}
+                              title={u.status === 1 ? 'Inativar' : 'Ativar'}
+                              style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'none', cursor: alterando === u.idUsuario ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s' }}
+                              onMouseEnter={e => {
+                                const ativo = u.status === 1;
+                                e.currentTarget.style.background    = ativo ? 'rgba(239,68,68,0.1)'  : 'rgba(16,185,129,0.1)';
+                                e.currentTarget.style.borderColor   = ativo ? 'rgba(239,68,68,0.2)'  : 'rgba(16,185,129,0.2)';
+                                e.currentTarget.style.color         = ativo ? '#ef4444'              : '#10b981';
+                              }}
+                              onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
+                              {alterando === u.idUsuario
+                                ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }}/>
+                                : <Power size={13}/>
+                              }
+                            </button>
                           </div>
-                        </div>
-                      </td>
-
-                      <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--muted)', fontFamily: 'Syne', fontWeight: 600 }}>{u.cpf}</td>
-
-                      <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--text)' }}>{u.email}</td>
-
-                      <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: ps.bg, color: ps.color }}>
-                          {ps.emoji} {perfilLabel}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, color: depNome !== '—' ? 'var(--text)' : 'var(--muted)' }}>
-                        {depNome}
-                      </td>
-
-                      {/* Status vindo do banco (bit) */}
-                      <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500,
-                          background: u.status ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                          color: u.status === 1 ? '#10b981' : '#ef4444' }}>
-                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }}/>
-                          {u.status === 1 ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </td>
-
-                      <td style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={() => handleEdit(u)} title="Editar"
-                            style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.background='rgba(79,110,247,0.1)'; e.currentTarget.style.borderColor='rgba(79,110,247,0.2)'; e.currentTarget.style.color='#4f6ef7'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
-                            <Pencil size={13}/>
-                          </button>
-                          <button onClick={() => handleAlterarStatus(u)}
-                            disabled={alterando === u.idUsuario}
-                            title={u.status === 1 ? 'Inativar' : 'Ativar'}
-                            style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid transparent', background: 'none', cursor: alterando === u.idUsuario ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s' }}
-                            onMouseEnter={e => {
-                              const ativo = u.status === 1;
-                              e.currentTarget.style.background    = ativo ? 'rgba(239,68,68,0.1)'  : 'rgba(16,185,129,0.1)';
-                              e.currentTarget.style.borderColor   = ativo ? 'rgba(239,68,68,0.2)'  : 'rgba(16,185,129,0.2)';
-                              e.currentTarget.style.color         = ativo ? '#ef4444'              : '#10b981';
-                            }}
-                            onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
-                            {alterando === u.idUsuario
-                              ? <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }}/>
-                              : <Power size={13}/>
-                            }
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {/* Sem resultados na busca */}

@@ -4,6 +4,7 @@ import StatChip from '../components/ui/StatChip';
 import { useRequisicoes, STATUS_MAP } from '../hooks/useRequisicoes';
 import { useMateriais } from '../hooks/useMateriais';
 import { useAuth } from '../hooks/useAuth';
+import BuscaDropdown from '../components/ui/BuscaDropdown';
 
 function formatarData(iso) {
   if (!iso) return '—';
@@ -49,6 +50,9 @@ export default function Requisicoes() {
   const [busca, setBusca]             = useState('');
   const [expandida, setExpandida]     = useState(null);
   const [atualizando, setAtualizando] = useState(null);
+  const [materialBusca, setMaterialBusca]       = useState('');
+  const [materialDropdown, setMaterialDropdown] = useState(false);
+  const [materialObj, setMaterialObj]           = useState(null);
 
   // ── Estados do form de nova requisição ──
   const [form, setForm]         = useState(emptyForm);
@@ -76,6 +80,12 @@ export default function Requisicoes() {
       r.nomeDepartamento?.toLowerCase().includes(busca.toLowerCase())
     );
 
+  const materiaisDisponiveis = materiais
+    .filter(m => m.status === 1)
+    .filter(m => !itens.find(i => i.materialId === m.idMaterial))
+    .filter(m => m.nome.toLowerCase().includes(materialBusca.toLowerCase()))
+    .slice(0, 8);
+
   const total     = visiveis.length;
   const abertas   = visiveis.filter(r => r.status === 1).length;
   const andamento = visiveis.filter(r => r.status === 2 || r.status === 3).length;
@@ -100,6 +110,8 @@ export default function Requisicoes() {
     }]);
     setMatSel('');
     setQtdSel('');
+    setMaterialBusca('');
+    setMaterialObj(null);
     setErroForm(null);
   };
 
@@ -113,6 +125,8 @@ export default function Requisicoes() {
     setMatSel('');
     setQtdSel('');
     setErroForm(null);
+    setMaterialBusca('');
+    setMaterialObj(null);
   };
 
   const handleCriar = async () => {
@@ -243,20 +257,80 @@ export default function Requisicoes() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)' }}>Material *</label>
-              <select value={matSel}
-                onChange={e => { setMatSel(e.target.value); setErroForm(null); }}
-                style={{ ...inputStyle, color: matSel ? 'var(--text)' : 'var(--muted)' }}
-                onFocus={focusStyle} onBlur={blurStyle}>
-                <option value="" disabled>Selecione o material...</option>
-                {materiais
-                  .filter(m => !itens.find(i => i.materialId === m.idMaterial))
-                  .map(m => (
-                    <option key={m.idMaterial} value={m.idMaterial}>
-                      {m.nome} — estoque: {m.estoqueAtual}
-                    </option>
-                  ))
-                }
-              </select>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  value={materialObj ? materialObj.nome : materialBusca}
+                  placeholder="Digite para buscar material..."
+                  onChange={e => {
+                    setMaterialBusca(e.target.value);
+                    setMaterialDropdown(true);
+                    if (materialObj) { setMaterialObj(null); setMatSel(''); }
+                  }}
+                  onFocus={e => {
+                    e.target.style.borderColor = 'var(--accent)';
+                    e.target.style.boxShadow = '0 0 0 3px var(--accent-glow)';
+                    setMaterialDropdown(true);
+                    if (materialObj) { setMaterialBusca(''); setMaterialObj(null); setMatSel(''); }
+                  }}
+                  onBlur={e => {
+                    e.target.style.borderColor = 'var(--border)';
+                    e.target.style.boxShadow = 'none';
+                    setTimeout(() => setMaterialDropdown(false), 150);
+                  }}
+                  style={{
+                    ...inputStyle,
+                    borderColor: materialObj ? 'rgba(16,185,129,0.4)' : 'var(--border)',
+                    paddingRight: materialObj ? 36 : 14,
+                  }}
+                />
+
+                {/* Check quando selecionado */}
+                {materialObj && (
+                  <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#10b981', fontSize: 14 }}>✓</span>
+                )}
+
+                {/* Dropdown */}
+                {materialDropdown && !materialObj && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, marginTop: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+
+                    {materiaisDisponiveis.length === 0 && (
+                      <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--muted)', textAlign: 'center' }}>
+                        {materialBusca ? 'Nenhum material encontrado.' : 'Digite para buscar...'}
+                      </div>
+                    )}
+
+                    {materiaisDisponiveis.map(m => {
+                      const ratio = m.estoqueMin > 0 ? m.estoqueAtual / m.estoqueMin : 1;
+                      const cor = ratio <= 0.5 ? '#ef4444' : ratio < 1 ? '#f59e0b' : '#10b981';
+                      return (
+                        <div key={m.idMaterial}
+                          onMouseDown={() => {
+                            setMaterialObj(m);
+                            setMatSel(String(m.idMaterial));
+                            setMaterialBusca(m.nome);
+                            setMaterialDropdown(false);
+                            setErroForm(null);
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer', transition: 'background 0.15s', borderBottom: '1px solid var(--border)' }}
+                          onMouseEnter={e => e.currentTarget.style.background='rgba(79,110,247,0.06)'}
+                          onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{m.nome}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                              {m.categoriaNome} · ID {m.idMaterial}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: cor, fontFamily: 'Syne' }}>{m.estoqueAtual}</div>
+                            <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase' }}>{m.unidade}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -306,8 +380,12 @@ export default function Requisicoes() {
               onChange={e => setForm(f => ({ ...f, observacao: e.target.value }))}
               placeholder="Ex: Urgente para apresentação na sexta..."
               rows={2}
+              maxLength={200}
               style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
               onFocus={focusStyle} onBlur={blurStyle}/>
+              <div style={{ fontSize: 11, color: (form.observacao?.length ?? 0) > 180 ? '#f59e0b' : 'var(--muted)', textAlign: 'right', marginTop: 4 }}>
+                {form.observacao?.length ?? 0}/200
+              </div>
           </div>
 
           {/* Erro */}
@@ -349,7 +427,7 @@ export default function Requisicoes() {
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', animation: 'fadeUp 0.35s ease 0.2s both' }}>
 
         {/* Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {FILTROS.map(f => (
               <button key={f.key} onClick={() => setFiltro(f.key)}
@@ -390,242 +468,262 @@ export default function Requisicoes() {
 
         {/* Tabela */}
         {!loading && visiveis.length > 0 && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <TH>ID</TH>
-                <TH>Requisitante</TH>
-                <TH>Departamento</TH>
-                <TH>Itens</TH>
-                <TH>Data</TH>
-                <TH>Status</TH>
-                <TH>Ações</TH>
-                <TH></TH>
-              </tr>
-            </thead>
-            <tbody>
-              {visiveis.map(r => {
-                const st       = STATUS_MAP[r.status];
-                const initials = r.nomeRequisitante
-                  ? r.nomeRequisitante.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase()
-                  : '??';
-                const aberta   = expandida === r.idRequisicao;
-                const emAcao   = atualizando === r.idRequisicao;
-                const proximos = proximosStatus(r.status);
+          <div style={{
+            overflowY: 'auto',
+            overflowX: 'auto',
+            maxHeight: '460px',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'var(--border) transparent',
+            flex: 1,
+          }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['ID', 'Requisitante', 'Departamento', 'Itens', 'Data', 'Status', 'Ações', ''].map(h => (
+                    <th key={h} style={{
+                      textAlign: 'left', fontSize: 11, fontWeight: 500,
+                      letterSpacing: '0.06em', textTransform: 'uppercase',
+                      color: 'var(--muted)', padding: '11px 16px',
+                      borderBottom: '1px solid var(--border)',
+                      background: 'var(--surface)', // ← fundo sólido
+                      whiteSpace: 'nowrap',
+                      position: 'sticky', top: 0, zIndex: 1, // ← header fixo
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visiveis.map(r => {
+                  const st       = STATUS_MAP[r.status];
+                  const initials = r.nomeRequisitante
+                    ? r.nomeRequisitante.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase()
+                    : '??';
+                  const aberta   = expandida === r.idRequisicao;
+                  const emAcao   = atualizando === r.idRequisicao;
+                  const proximos = proximosStatus(r.status);
 
-                return (
-                  <>
-                    <tr key={r.idRequisicao}
-                      style={{ transition: 'background 0.15s', background: aberta ? 'rgba(79,110,247,0.04)' : 'transparent' }}
-                      onMouseEnter={e => { if (!aberta) e.currentTarget.style.background='rgba(255,255,255,0.015)'; }}
-                      onMouseLeave={e => { if (!aberta) e.currentTarget.style.background='transparent'; }}>
+                  return (
+                    <>
+                      <tr key={r.idRequisicao}
+                        style={{ transition: 'background 0.15s', background: aberta ? 'rgba(79,110,247,0.04)' : 'transparent' }}
+                        onMouseEnter={e => { if (!aberta) e.currentTarget.style.background='rgba(255,255,255,0.015)'; }}
+                        onMouseLeave={e => { if (!aberta) e.currentTarget.style.background='transparent'; }}>
 
-                      <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)', fontSize: 12, fontFamily: 'Syne', color: 'var(--muted)', fontWeight: 600 }}>
-                        #{String(r.idRequisicao).padStart(4,'0')}
-                      </td>
+                        <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)', fontSize: 12, fontFamily: 'Syne', color: 'var(--muted)', fontWeight: 600 }}>
+                          #{String(r.idRequisicao).padStart(4,'0')}
+                        </td>
 
-                      <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 30, height: 30, borderRadius: '50%', background: `linear-gradient(135deg,${st.color},${st.color}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', flexShrink: 0 }}>
-                            {initials}
+                        <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 30, height: 30, borderRadius: '50%', background: `linear-gradient(135deg,${st.color},${st.color}88)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                              {initials}
+                            </div>
+                            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{r.nomeRequisitante}</span>
                           </div>
-                          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{r.nomeRequisitante}</span>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)', fontSize: 13, color: 'var(--muted)' }}>
-                        {r.nomeDepartamento}
-                      </td>
+                        <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)', fontSize: 13, color: 'var(--muted)' }}>
+                          {r.nomeDepartamento}
+                        </td>
 
-                      <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '3px 9px', fontSize: 12, color: 'var(--muted)' }}>
-                          <Package size={11}/> {r.itens?.length ?? 0} {r.itens?.length === 1 ? 'item' : 'itens'}
-                        </span>
-                      </td>
+                        <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '3px 9px', fontSize: 12, color: 'var(--muted)' }}>
+                            <Package size={11}/> {r.itens?.length ?? 0} {r.itens?.length === 1 ? 'item' : 'itens'}
+                          </span>
+                        </td>
 
-                      <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)', fontSize: 12, color: 'var(--muted)' }}>
-                        {formatarData(r.dataRequisicao)}
-                      </td>
+                        <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)', fontSize: 12, color: 'var(--muted)' }}>
+                          {formatarData(r.dataRequisicao)}
+                        </td>
 
-                      <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: st.bg, color: st.color }}>
-                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }}/>
-                          {st.label}
-                        </span>
-                      </td>
+                        <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500, background: st.bg, color: st.color }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }}/>
+                            {st.label}
+                          </span>
+                        </td>
 
-                      <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
 
-                          {/* ADMIN / FUNCIONÁRIO */}
-                          {(isAdmin || isFuncionario) && (
-                            proximos.length === 0
-                              ? <span style={{ fontSize: 11, color: 'var(--muted)' }}>—</span>
-                              : proximos.map(p => (
-                                  <button
-                                    key={p.status}
-                                    onClick={() => handleStatus(r.idRequisicao, p.status)}
-                                    disabled={emAcao}
-                                    style={{
-                                      padding: '4px 10px',
-                                      borderRadius: 8,
-                                      fontSize: 11,
-                                      fontWeight: 500,
-                                      cursor: emAcao ? 'not-allowed' : 'pointer',
-                                      fontFamily: 'DM Sans',
-                                      transition: 'all 0.15s',
-                                      whiteSpace: 'nowrap',
-                                      background: p.status === 5 ? 'rgba(239,68,68,0.08)' : 'rgba(79,110,247,0.08)',
-                                      border: p.status === 5 ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(79,110,247,0.2)',
-                                      color: p.status === 5 ? '#ef4444' : 'var(--accent)',
-                                      opacity: emAcao ? 0.5 : 1,
-                                    }}
-                                  >
-                                    {emAcao ? '...' : p.label}
-                                  </button>
-                                ))
-                          )}
+                            {/* ADMIN / FUNCIONÁRIO */}
+                            {(isAdmin || isFuncionario) && (
+                              proximos.length === 0
+                                ? <span style={{ fontSize: 11, color: 'var(--muted)' }}>—</span>
+                                : proximos.map(p => (
+                                    <button
+                                      key={p.status}
+                                      onClick={() => handleStatus(r.idRequisicao, p.status)}
+                                      disabled={emAcao}
+                                      style={{
+                                        padding: '4px 10px',
+                                        borderRadius: 8,
+                                        fontSize: 11,
+                                        fontWeight: 500,
+                                        cursor: emAcao ? 'not-allowed' : 'pointer',
+                                        fontFamily: 'DM Sans',
+                                        transition: 'all 0.15s',
+                                        whiteSpace: 'nowrap',
+                                        background: p.status === 5 ? 'rgba(239,68,68,0.08)' : 'rgba(79,110,247,0.08)',
+                                        border: p.status === 5 ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(79,110,247,0.2)',
+                                        color: p.status === 5 ? '#ef4444' : 'var(--accent)',
+                                        opacity: emAcao ? 0.5 : 1,
+                                      }}
+                                    >
+                                      {emAcao ? '...' : p.label}
+                                    </button>
+                                  ))
+                            )}
 
-                          {/* REQUISITANTE */}
-                          {isRequisitante && r.status === 1 && (
-                            <button
-                              onClick={() => handleStatus(r.idRequisicao, 5)}
-                              disabled={emAcao}
-                              style={{
-                                padding: '4px 10px',
-                                borderRadius: 8,
-                                fontSize: 11,
-                                fontWeight: 500,
-                                cursor: emAcao ? 'not-allowed' : 'pointer',
-                                fontFamily: 'DM Sans',
-                                background: 'rgba(239,68,68,0.08)',
-                                border: '1px solid rgba(239,68,68,0.2)',
-                                color: '#ef4444',
-                                opacity: emAcao ? 0.5 : 1,
-                              }}
-                            >
-                              Cancelar
-                            </button>
-                          )}
+                            {/* REQUISITANTE */}
+                            {isRequisitante && r.status === 1 && (
+                              <button
+                                onClick={() => handleStatus(r.idRequisicao, 5)}
+                                disabled={emAcao}
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: 8,
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                  cursor: emAcao ? 'not-allowed' : 'pointer',
+                                  fontFamily: 'DM Sans',
+                                  background: 'rgba(239,68,68,0.08)',
+                                  border: '1px solid rgba(239,68,68,0.2)',
+                                  color: '#ef4444',
+                                  opacity: emAcao ? 0.5 : 1,
+                                }}
+                              >
+                                Cancelar
+                              </button>
+                            )}
 
-                          {isRequisitante && r.status !== 1 && (
-                            <span style={{ fontSize: 11, color: 'var(--muted)' }}>—</span>
-                          )}
-
-                        </div>
-                      </td>
-
-                      <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
-                        <button onClick={() => { setExpandida(prev => prev === r.idRequisicao ? null : r.idRequisicao); setEditandoItem(null); }}
-                          style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: aberta ? 'var(--accent-glow)' : 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: aberta ? 'var(--accent)' : 'var(--muted)', transition: 'all 0.15s' }}>
-                          {aberta ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
-                        </button>
-                      </td>
-                    </tr>
-
-                    {/* ── LINHA EXPANDIDA ── */}
-                    {aberta && (
-                      <tr key={`${r.idRequisicao}-detalhe`}>
-                        <td colSpan={8} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(79,110,247,0.03)', padding: '0 16px 16px 64px' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 20, alignItems: 'start' }}>
-
-                            {/* Itens com edição de quantidade */}
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
-                                Itens da Requisição
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {r.itens?.map(item => {
-                                  const esteEditando = editandoItem?.reqId === r.idRequisicao && editandoItem?.materialId === item.idMaterial;
-                                  return (
-                                    <div key={item.idMaterial} style={{ display: 'flex', alignItems: 'center', gap: 10, background: esteEditando ? 'rgba(79,110,247,0.06)' : 'var(--surface2)', border: `1px solid ${esteEditando ? 'rgba(79,110,247,0.25)' : 'var(--border)'}`, borderRadius: 10, padding: '8px 14px', transition: 'all 0.15s' }}>
-                                      <Package size={14} color="var(--muted)" style={{ flexShrink: 0 }}/>
-                                      <span style={{ flex: 1, fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{item.nomeMaterial}</span>
-
-                                      {/* Modo visualização */}
-                                      {!esteEditando && (
-                                        <>
-                                          <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'Syne', fontWeight: 600 }}>
-                                            {item.quantidade} {item.nomeUnidade}
-                                          </span>
-                                          {/* Botão editar quantidade — só em requisições abertas ou em separação */}
-                                          {(r.status === 1 || r.status === 2) && (
-                                            <button
-                                              onClick={() => setEditandoItem({ reqId: r.idRequisicao, materialId: item.idMaterial, quantidade: String(item.quantidade) })}
-                                              title="Editar quantidade"
-                                              style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid transparent', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s', flexShrink: 0 }}
-                                              onMouseEnter={e => { e.currentTarget.style.background='rgba(79,110,247,0.1)'; e.currentTarget.style.borderColor='rgba(79,110,247,0.2)'; e.currentTarget.style.color='#4f6ef7'; }}
-                                              onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
-                                              <Pencil size={11}/>
-                                            </button>
-                                          )}
-                                        </>
-                                      )}
-
-                                      {/* Modo edição */}
-                                      {esteEditando && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                          <input
-                                            type="number" min="1"
-                                            value={editandoItem.quantidade}
-                                            onChange={e => setEditandoItem(prev => ({ ...prev, quantidade: e.target.value }))}
-                                            onKeyDown={e => { if (e.key === 'Enter') handleSalvarQtd(r.idRequisicao, item.idMaterial); if (e.key === 'Escape') setEditandoItem(null); }}
-                                            autoFocus
-                                            style={{ width: 70, background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: 8, padding: '4px 8px', color: 'var(--text)', fontFamily: 'DM Sans', fontSize: 13, outline: 'none', textAlign: 'center' }}
-                                          />
-                                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.nomeUnidade}</span>
-                                          {/* Salvar */}
-                                          <button onClick={() => handleSalvarQtd(r.idRequisicao, item.idMaterial)}
-                                            style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', flexShrink: 0 }}>
-                                            <Save size={11}/>
-                                          </button>
-                                          {/* Cancelar */}
-                                          <button onClick={() => setEditandoItem(null)}
-                                            style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', flexShrink: 0 }}>
-                                            <X size={11}/>
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-
-                            {/* Detalhes */}
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
-                                Detalhes
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px' }}>
-                                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>Abertura</div>
-                                  <div style={{ fontSize: 13, color: 'var(--text)' }}>{formatarData(r.dataRequisicao)}</div>
-                                </div>
-                                {r.dataEnvio && (
-                                  <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px' }}>
-                                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>Envio</div>
-                                    <div style={{ fontSize: 13, color: 'var(--text)' }}>{formatarData(r.dataEnvio)}</div>
-                                  </div>
-                                )}
-                                {r.observacao && (
-                                  <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px' }}>
-                                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>Observação</div>
-                                    <div style={{ fontSize: 13, color: 'var(--text)' }}>{r.observacao}</div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                            {isRequisitante && r.status !== 1 && (
+                              <span style={{ fontSize: 11, color: 'var(--muted)' }}>—</span>
+                            )}
 
                           </div>
                         </td>
+
+                        <td style={{ padding: '14px 16px', borderBottom: aberta ? 'none' : '1px solid var(--border)' }}>
+                          <button onClick={() => { setExpandida(prev => prev === r.idRequisicao ? null : r.idRequisicao); setEditandoItem(null); }}
+                            style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: aberta ? 'var(--accent-glow)' : 'var(--surface2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: aberta ? 'var(--accent)' : 'var(--muted)', transition: 'all 0.15s' }}>
+                            {aberta ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
+                          </button>
+                        </td>
                       </tr>
-                    )}
-                  </>
-                );
-              })}
-            </tbody>
-          </table>
+
+                      {/* ── LINHA EXPANDIDA ── */}
+                      {aberta && (
+                        <tr key={`${r.idRequisicao}-detalhe`}>
+                          <td colSpan={8} style={{ borderBottom: '1px solid var(--border)', background: 'rgba(79,110,247,0.03)', padding: '0 16px 16px 64px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 20, alignItems: 'start' }}>
+
+                              {/* Itens com edição de quantidade */}
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
+                                  Itens da Requisição
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  {r.itens?.map(item => {
+                                    const esteEditando = editandoItem?.reqId === r.idRequisicao && editandoItem?.materialId === item.idMaterial;
+                                    return (
+                                      <div key={item.idMaterial} style={{ display: 'flex', alignItems: 'center', gap: 10, background: esteEditando ? 'rgba(79,110,247,0.06)' : 'var(--surface2)', border: `1px solid ${esteEditando ? 'rgba(79,110,247,0.25)' : 'var(--border)'}`, borderRadius: 10, padding: '8px 14px', transition: 'all 0.15s' }}>
+                                        <Package size={14} color="var(--muted)" style={{ flexShrink: 0 }}/>
+                                        <span style={{ flex: 1, fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{item.nomeMaterial}</span>
+
+                                        {/* Modo visualização */}
+                                        {!esteEditando && (
+                                          <>
+                                            <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'Syne', fontWeight: 600 }}>
+                                              {item.quantidade} {item.nomeUnidade}
+                                            </span>
+                                            {/* Botão editar quantidade — só em requisições abertas ou em separação */}
+                                            {(r.status === 1 || r.status === 2) && (
+                                              <button
+                                                onClick={() => setEditandoItem({ reqId: r.idRequisicao, materialId: item.idMaterial, quantidade: String(item.quantidade) })}
+                                                title="Editar quantidade"
+                                                style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid transparent', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', transition: 'all 0.15s', flexShrink: 0 }}
+                                                onMouseEnter={e => { e.currentTarget.style.background='rgba(79,110,247,0.1)'; e.currentTarget.style.borderColor='rgba(79,110,247,0.2)'; e.currentTarget.style.color='#4f6ef7'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.color='var(--muted)'; }}>
+                                                <Pencil size={11}/>
+                                              </button>
+                                            )}
+                                          </>
+                                        )}
+
+                                        {/* Modo edição */}
+                                        {esteEditando && (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <input
+                                              type="number" min="1"
+                                              value={editandoItem.quantidade}
+                                              onChange={e => setEditandoItem(prev => ({ ...prev, quantidade: e.target.value }))}
+                                              onKeyDown={e => { if (e.key === 'Enter') handleSalvarQtd(r.idRequisicao, item.idMaterial); if (e.key === 'Escape') setEditandoItem(null); }}
+                                              autoFocus
+                                              style={{ width: 70, background: 'var(--surface)', border: '1px solid var(--accent)', borderRadius: 8, padding: '4px 8px', color: 'var(--text)', fontFamily: 'DM Sans', fontSize: 13, outline: 'none', textAlign: 'center' }}
+                                            />
+                                            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.nomeUnidade}</span>
+                                            {/* Salvar */}
+                                            <button onClick={() => handleSalvarQtd(r.idRequisicao, item.idMaterial)}
+                                              style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', flexShrink: 0 }}>
+                                              <Save size={11}/>
+                                            </button>
+                                            {/* Cancelar */}
+                                            <button onClick={() => setEditandoItem(null)}
+                                              style={{ width: 26, height: 26, borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', flexShrink: 0 }}>
+                                              <X size={11}/>
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Detalhes */}
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
+                                  Detalhes
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                  <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px' }}>
+                                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>Abertura</div>
+                                    <div style={{ fontSize: 13, color: 'var(--text)' }}>{formatarData(r.dataRequisicao)}</div>
+                                  </div>
+                                  {r.dataEnvio && (
+                                    <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px' }}>
+                                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>Envio</div>
+                                      <div style={{ fontSize: 13, color: 'var(--text)' }}>{formatarData(r.dataEnvio)}</div>
+                                    </div>
+                                  )}
+                                  {r.observacao && (
+                                    <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px' }}>
+                                      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>Observação</div>
+                                      <div style={{
+                                        fontSize: 13,
+                                        color: 'var(--text)',
+                                        wordBreak: 'break-word',    // ← quebra palavras longas
+                                        overflowWrap: 'break-word', // ← garante quebra em todos os browsers
+                                        whiteSpace: 'pre-wrap',     // ← respeita quebras de linha intencionais
+                                      }}>
+                                        {r.observacao}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {!loading && requisicoes.length > 0 && visiveis.length === 0 && (

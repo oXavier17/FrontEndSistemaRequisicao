@@ -1,7 +1,10 @@
-import { Bell, User } from 'lucide-react';
+import { Sun, Moon, User } from 'lucide-react';
+import { useTheme } from '../../hooks/useTheme';
 import './Topbar.css';
 
 export default function Topbar({ title }) {
+  const { tema, toggleTema } = useTheme();
+
   return (
     <header className="topbar">
       <span className="topbar-title">{title}</span>
@@ -14,13 +17,18 @@ export default function Topbar({ title }) {
       </div>
 
       <div className="topbar-actions">
-        <div className="icon-btn">
-          <Bell size={16} />
-          <div className="notif-dot" />
+
+        {/* Toggle de tema */}
+        <div className="icon-btn" onClick={toggleTema} title={tema === 'dark' ? 'Modo claro' : 'Modo escuro'}
+          style={{ cursor: 'pointer' }}>
+          {tema === 'dark' ? <Sun size={16}/> : <Moon size={16}/>}
         </div>
-        <div className="icon-btn">
+
+        {/* Perfil */}
+        <div className="icon-btn" title="Perfil">
           <User size={16} />
         </div>
+
       </div>
     </header>
   );
